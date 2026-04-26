@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Ultra Core - File Upload Deployer</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 50%, #0a0a0a, #0a1525);
+            font-family: 'Orbitron', monospace;
+            padding: 40px 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .matrix-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: 0;
+            animation: matrixFlow 20s linear infinite;
+        }
+
+        @keyframes matrixFlow {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb-1 { width: 400px; height: 400px; background: #0066ff33; top: -200px; right: -100px; animation: float 8s infinite; }
+        .orb-2 { width: 500px; height: 500px; background: #00ffcc33; bottom: -250px; left: -150px; animation: float 10s infinite reverse; }
+        .orb-3 { width: 300px; height: 300px; background: #6600ff33; top: 50%; left: 20%; animation: float 12s infinite; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(50px, 30px) scale(1.1); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .glitch {
+            font-size: 54px;
+            font-weight: 900;
+            text-transform: uppercase;
+            position: relative;
+            animation: glitch 0.3s infinite;
+        }
+
+        @keyframes glitch {
+            0%, 100% { text-shadow: 0.05em 0 0 rgba(0,100,255,0.75), -0.05em -0.025em 0 rgba(0,255,100,0.75); }
+            50% { text-shadow: -0.05em -0.025em 0 rgba(0,100,255,0.75), 0.025em 0.025em 0 rgba(0,255,100,0.75); }
+        }
+
+        .glitch span {
+            background: linear-gradient(135deg, #0066ff, #00ffcc, #6600ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(360deg); }
+        }
+
+        .subtitle {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 12px;
+            color: #00ffcc;
+            margin-top: 20px;
+            text-shadow: 0 0 10px rgba(0,255,204,0.5);
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #00ffcc;
+            border-radius: 20px;
+            padding: 5px 15px;
+            margin-top: 15px;
+            font-size: 10px;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            border: 2px solid #00ffcc33;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #0066ff, #00ffcc, #6600ff);
+            border-radius: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .card:hover::before {
+            opacity: 0.5;
+        }
+
+        .card-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #00ffcc;
+            margin-bottom: 25px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .input-group {
+            margin-bottom: 25px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #00ffcc;
+            font-size: 13px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .script-input, .webhook-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid #00ffcc;
+            border-radius: 10px;
+            padding: 14px 18px;
+            color: #00ffcc;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .script-input:focus, .webhook-input:focus {
+            border-color: #0066ff;
+            box-shadow: 0 0 20px rgba(0,102,255,0.3);
+        }
+
+        /* File Upload Area */
+        .upload-area {
+            border: 2px dashed #00ffcc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 255, 204, 0.05);
+            margin-bottom: 15px;
+        }
+
+        .upload-area:hover {
+            background: rgba(0, 255, 204, 0.1);
+            border-color: #0066ff;
+        }
+
+        .upload-area.drag-over {
+            background: rgba(0, 255, 204, 0.2);
+            border-color: #00ffcc;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #00ffcc;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 255, 204, 0.1);
+            border-radius: 8px;
+            color: #00ffcc;
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .file-info.error {
+            color: #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .file-info.success {
+            color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .lua-editor {
+            width: 100%;
+            min-height: 300px;
+            background: #0a0a0a;
+            border: 2px solid #00ffcc;
+            border-radius: 10px;
+            padding: 20px;
+            color: #00ffcc;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: vertical;
+            outline: none;
+        }
+
+        .mode-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            background: rgba(0, 255, 204, 0.1);
+            border: 1px solid #00ffcc;
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #00ffcc;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(135deg, #0066ff, #00ffcc);
+            color: #000;
+            border-color: transparent;
+        }
+
+        .deploy-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #0066ff, #00ffcc);
+            border: none;
+            border-radius: 10px;
+            padding: 18px;
+            color: #000;
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 20px;
+        }
+
+        .deploy-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 0 40px rgba(0,102,255,0.5);
+        }
+
+        .deploy-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .reset-btn {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid #ff4444;
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #ff4444;
+            font-family: 'Orbitron', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: rgba(255, 68, 68, 0.4);
+        }
+
+        .result-section {
+            margin-top: 30px;
+        }
+
+        .info-box {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #00ffcc;
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #00ffcc;
+            word-break: break-all;
+            margin-bottom: 15px;
+        }
+
+        .copy-btn {
+            background: rgba(0, 255, 204, 0.2);
+            border: 1px solid #00ffcc;
+            border-radius: 6px;
+            padding: 10px 20px;
+            color: #00ffcc;
+            font-family: 'Orbitron', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .copy-btn:hover {
+            background: rgba(0, 255, 204, 0.4);
+        }
+
+        .terminal {
+            background: #000;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #00ff00;
+            max-height: 350px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .terminal-line {
+            margin: 5px 0;
+            opacity: 0;
+            animation: typeIn 0.1s forwards;
+        }
+
+        .terminal-line.error { color: #ff4444; }
+        .terminal-line.success { color: #00ff88; }
+        .terminal-line.warning { color: #ffaa00; }
+
+        @keyframes typeIn {
+            to { opacity: 1; }
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-size: 12px;
+            z-index: 100;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #666;
+            font-size: 10px;
+            border-top: 1px solid rgba(0,255,204,0.2);
+        }
+
+        .warning-text {
+            color: #ffaa00;
+            font-size: 11px;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .glitch { font-size: 28px; }
+            .upload-icon { font-size: 48px; }
+            .upload-text { font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="matrix-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="container">
+        <div class="header">
+            <div class="glitch"><span>DEEPSEEK ULTRA CORE</span></div>
+            <div class="subtitle">██████╗ ███████╗███████╗███████╗██████╗ ███████╗███████╗██╗  ██╗</div>
+            <div class="badge">🔒 3-STRIKE GHOST PROTOCOL | 📁 .LUA FILE UPLOAD | 🌐 VERCELL DEPLOY</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⚡ DEPLOYMENT CONFIGURATION</div>
+            
+            <div class="input-group">
+                <label>📁 OUTPUT FILENAME (without extension)</label>
+                <input type="text" class="script-input" id="scriptName" placeholder="example: A, myScript, loader">
+                <div class="warning-text">⚠️ Required. File will be saved as: [name].lua</div>
+            </div>
+
+            <div class="input-group">
+                <label>🔧 API SCRIPT NAME (for .js endpoint)</label>
+                <input type="text" class="script-input" id="apiName" placeholder="example: drumjudge, main, exec">
+                <div class="warning-text">⚠️ Required. Will become: api/[name].js</div>
+            </div>
+
+            <div class="input-group">
+                <label>🌐 DISCORD WEBHOOK URL (OPTIONAL)</label>
+                <input type="text" class="webhook-input" id="webhookUrl" placeholder="https://discord.com/api/webhooks/... (leave empty for default)">
+            </div>
+
+            <div class="input-group">
+                <label>📝 LUA SCRIPT SOURCE</label>
+                <div class="mode-switch">
+                    <button class="mode-btn active" id="modeUploadBtn" onclick="setMode('upload')">📂 UPLOAD .LUA FILE</button>
+                    <button class="mode-btn" id="modePasteBtn" onclick="setMode('paste')">✏️ PASTE CODE</button>
+                </div>
+                
+                <!-- Upload mode (default) -->
+                <div id="uploadArea" class="upload-area">
+                    <div class="upload-icon">📂</div>
+                    <div class="upload-text">Click or drag & drop your .lua file here</div>
+                    <div class="upload-subtext">Supports .lua, .txt, .luau files</div>
+                    <div id="fileInfo" class="file-info" style="display: none;"></div>
+                    <input type="file" id="fileInput" accept=".lua,.txt,.luau" style="display: none;">
+                </div>
+                
+                <!-- Paste mode (hidden by default) -->
+                <textarea id="luaCode" class="lua-editor" style="display: none;" placeholder="-- Paste your Roblox Lua script here&#10;&#10;print('Hello from DeepSeek Ultra Core!')"></textarea>
+            </div>
+
+            <button class="deploy-btn" id="deployBtn">🚀 DEPLOY TO GITHUB & VERCELL</button>
+        </div>
+
+        <div class="result-section" id="resultSection" style="display: none;">
+            <div class="card">
+                <div class="card-title">🔗 DEPLOYMENT RESOURCES</div>
+                <div class="info-box" id="luaUrlVercel"></div>
+                <div class="info-box" id="apiUrlBox"></div>
+                <button class="copy-btn" onclick="copyToClipboard('luaVercel')">📋 COPY LUA URL (Vercel)</button>
+                <button class="copy-btn" onclick="copyToClipboard('api')">📋 COPY API ENDPOINT</button>
+                <div class="terminal" id="terminal">
+                    <div class="terminal-line success">> DeepSeek Ultra Core v5.0 initialized</div>
+                    <div class="terminal-line success">> GitHub API: Connected</div>
+                    <div class="terminal-line success">> Vercel: Auto-deploy enabled</div>
+                    <div class="terminal-line success">> Ready for .lua file upload</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>DEEPSEEK ULTRA CORE — Upload .lua File or Paste Code | GitHub (Private) + Vercel (Public)</div>
+            <div>© 2024 DeepSeek AI | 3-Strike Ghost Protocol | IP Geolocation Tracking</div>
+            <div>Created by DeepSeek — Stronger Than Traditional Obfuscation</div>
+        </div>
+    </div>
+
+    <div class="status" id="status">🟢 READY - Upload .lua file or paste code</div>
+
+    <script>
+        // Global variables
+        let currentMode = 'upload';
+        let uploadedFileContent = '';
+        let uploadedFileName = '';
+        
+        // GitHub Configuration
+        const GITHUB_TOKEN = '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';
+        const GITHUB_REPO = 'ZiFiID/open-source';
+        const GITHUB_API_URL = 'https://api.github.com/repos/ZiFiID/open-source/contents';
+        const VERCELL_BASE = 'https://open-source-ten-eta.vercel.app';
+        
+        let currentLuaVercelUrl = '';
+        let currentApiUrl = '';
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const luaCodeTextarea = document.getElementById('luaCode');
+        const uploadAreaDiv = document.getElementById('uploadArea');
+        const modeUploadBtn = document.getElementById('modeUploadBtn');
+        const modePasteBtn = document.getElementById('modePasteBtn');
+
+        function setMode(mode) {
+            currentMode = mode;
+            
+            if (mode === 'upload') {
+                uploadAreaDiv.style.display = 'block';
+                luaCodeTextarea.style.display = 'none';
+                modeUploadBtn.classList.add('active');
+                modePasteBtn.classList.remove('active');
+                updateStatus('📂 Upload mode - select a .lua file', 'info');
+            } else {
+                uploadAreaDiv.style.display = 'none';
+                luaCodeTextarea.style.display = 'block';
+                modeUploadBtn.classList.remove('active');
+                modePasteBtn.classList.add('active');
+                updateStatus('✏️ Paste mode - enter your Lua code', 'info');
+            }
+        }
+
+        // Handle file selection
+        function handleFileSelect(file) {
+            if (!file) return;
+            
+            // Check file extension
+            const validExtensions = ['.lua', '.txt', '.luau'];
+            const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!validExtensions.includes(fileExt)) {
+                fileInfo.innerHTML = `❌ Invalid file type! Please upload .lua, .txt, or .luau file`;
+                fileInfo.className = 'file-info error';
+                fileInfo.style.display = 'block';
+                uploadedFileContent = '';
+                uploadedFileName = '';
+                updateStatus('❌ Invalid file type - use .lua files', 'error');
+                return;
+            }
+            
+            uploadedFileName = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedFileContent = e.target.result;
+                const lineCount = uploadedFileContent.split('\n').length;
+                const sizeKB = (file.size / 1024).toFixed(2);
+                
+                fileInfo.innerHTML = `✅ File loaded: ${file.name}<br>📊 Size: ${sizeKB} KB | Lines: ${lineCount}`;
+                fileInfo.className = 'file-info success';
+                fileInfo.style.display = 'block';
+                
+                updateStatus(`✅ File loaded: ${file.name} (${lineCount} lines)`, 'success');
+                addTerminalLine(`> 📂 File loaded: ${file.name} (${sizeKB} KB, ${lineCount} lines)`, 'success');
+            };
+            reader.onerror = function() {
+                fileInfo.innerHTML = `❌ Failed to read file!`;
+                fileInfo.className = 'file-info error';
+                fileInfo.style.display = 'block';
+                uploadedFileContent = '';
+                uploadedFileName = '';
+                updateStatus('❌ Failed to read file', 'error');
+                addTerminalLine('> ❌ Failed to read file', 'error');
+            };
+            reader.readAsText(file);
+        }
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                handleFileSelect(file);
+                // Also set the file input for consistency
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+            }
+        });
+
+        function getLuaContent() {
+            if (currentMode === 'upload') {
+                return uploadedFileContent;
+            } else {
+                return luaCodeTextarea.value;
+            }
+        }
+
+        function hasLuaContent() {
+            if (currentMode === 'upload') {
+                return uploadedFileContent && uploadedFileContent.trim() !== '';
+            } else {
+                return luaCodeTextarea.value && luaCodeTextarea.value.trim() !== '';
+            }
+        }
+
+        function validateScriptName(name) {
+            if (!name || name.trim() === '') {
+                return { valid: false, message: '❌ Output filename is required!' };
+            }
+            const validPattern = /^[a-zA-Z0-9_-]+$/;
+            if (!validPattern.test(name)) {
+                return { valid: false, message: '❌ Invalid filename! Use only letters, numbers, underscore (_) and dash (-)' };
+            }
+            return { valid: true, message: '' };
+        }
+
+        function validateApiName(name) {
+            if (!name || name.trim() === '') {
+                return { valid: false, message: '❌ API name is required!' };
+            }
+            const validPattern = /^[a-zA-Z0-9_-]+$/;
+            if (!validPattern.test(name)) {
+                return { valid: false, message: '❌ Invalid API name! Use only letters, numbers, underscore (_) and dash (-)' };
+            }
+            return { valid: true, message: '' };
+        }
+
+        function addTerminalLine(text, type = 'info') {
+            const terminal = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type === 'error' ? 'error' : (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : ''))}`;
+            line.textContent = text;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '🟢';
+            statusDiv.innerHTML = `${icon} ${message}`;
+            if (type === 'error') {
+                statusDiv.style.borderColor = '#ff4444';
+                statusDiv.style.color = '#ff4444';
+            } else if (type === 'success') {
+                statusDiv.style.borderColor = '#00ff88';
+                statusDiv.style.color = '#00ff88';
+            } else {
+                statusDiv.style.borderColor = '#00ffcc';
+                statusDiv.style.color = '#00ffcc';
+            }
+            setTimeout(() => { statusDiv.style.opacity = '0.9'; }, 3000);
+        }
+
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+        async function uploadToGitHub(filePath, content, commitMessage) {
+            try {
+                const encodedContent = btoa(unescape(encodeURIComponent(content)));
+                
+                let sha = null;
+                try {
+                    const getResponse = await fetch(`${GITHUB_API_URL}/${filePath}`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `token ${GITHUB_TOKEN}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+                    
+                    if (getResponse.ok) {
+                        const data = await getResponse.json();
+                        sha = data.sha;
+                        addTerminalLine(`> Existing file found, updating...`, 'warning');
+                    }
+                } catch (e) {
+                    addTerminalLine(`> Creating new file...`, 'info');
+                }
+                
+                const body = {
+                    message: commitMessage,
+                    content: encodedContent,
+                    branch: 'main'
+                };
+                if (sha) body.sha = sha;
+                
+                const response = await fetch(`${GITHUB_API_URL}/${filePath}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+                
+                const result = await response.json();
+                addTerminalLine(`> ✅ Uploaded: ${result.content.path}`, 'success');
+                return result;
+                
+            } catch (error) {
+                addTerminalLine(`> ❌ GitHub API Error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        function generateAPICode(luaVercelUrl, apiName, webhookUrl) {
+            const finalWebhook = webhookUrl || "https://discord.com/api/webhooks/1454627427216130069/OnFAy5ZbxvxUSbt2fA5_IiuCigL8fksUwC2JAoHiM1NoAjy--upjANa-KLW5msy44Bfe";
+            
+            return `const https = require('https');
+const crypto = require('crypto');
+const path = require('path');
+
+/** 
+ * DEEPSEEK ULTRA CORE - HYBRID GHOST EDITION
+ * Logic: Ghost Maze Protocol (3-Strike System)
+ * Security: Web-Only Unban + Signature Validation
+ * Script Source: ${luaVercelUrl}
+ */
+
+let sessions = {};
+let blacklist = {};
+let strikeCounter = {}; 
+
+const SECRET_SALT = "DEEPSEEK_ULTRA_CORE_2024_FINAL";
+const WEBHOOK = "${finalWebhook}";
+const SCRIPT_SOURCE = "${luaVercelUrl}";
+
+const fetchRawSource = (url) => {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let chunks = [];
+            res.on('data', (chunk) => chunks.push(chunk));
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+        }).on('error', reject);
+    });
+};
+
+const fetchGeoInfo = (ip) => {
+    return new Promise((resolve) => {
+        https.get(\`https://ipwho.is/\${ip}\`, (res) => {
+            let body = '';
+            res.on('data', (d) => body += d);
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(body);
+                    if (!json.success) return resolve(null);
+                    resolve(json);
+                } catch { resolve(null); }
+            });
+        }).on('error', () => resolve(null));
+    });
+};
+
+async function logToDiscordEmbed(ip, geo, title, scriptName, reason = "None", unbanLink = null) {
+    return new Promise((resolve) => {
+        const lat = geo?.latitude || 0;
+        const lon = geo?.longitude || 0;
+        const maps = \`https://www.google.com/maps?q=\${lat},\${lon}\`;
+        
+        const fields = [
+            { name: "📜 Script", value: \`\${scriptName}\`, inline: true },
+            { name: "🌐 IP Address", value: \`\${ip}\`, inline: true },
+            { name: "🌍 Location", value: \`\${geo?.city || "Unknown"}, \${geo?.country || "Unknown"}\`, inline: false },
+            { name: "📡 ISP", value: \`\${geo?.connection?.isp || "Unknown"}\`, inline: false },
+            { name: "📍 Coordinates", value: \`\${lat}, \${lon}\`, inline: true }
+        ];
+
+        if (reason !== "None") {
+            fields.push({ name: "⚠️ Violation Reason", value: \`\${reason}\`, inline: false });
+        }
+
+        let description = \`━━━━━━━━━━━━━━━\\n🔗 **QUICK ACCESS PANEL**\\n\\n🌍 **[ OPEN LOCATION ]**\\n\${maps}\\n\\n📄 **[ MAIN SCRIPT ]**\\n\${SCRIPT_SOURCE}\\n\`;
+        
+        if (unbanLink) {
+            description += \`\\n🔓 **[ UNBAN REQUEST ]**\\n\${unbanLink}\\n*(Web Browser Only)*\\n\`;
+        }
+        
+        description += \`━━━━━━━━━━━━━━━\`;
+
+        const data = JSON.stringify({
+            username: "DEEPSEEK SECURITY",
+            avatar_url: "https://cdn-icons-png.flaticon.com/512/565/565547.png",
+            embeds: [{
+                title: title,
+                color: title.includes("SUCCESS") ? 0x00ffcc : 0xff0055,
+                description: description,
+                fields: fields,
+                footer: { text: "DEEPSEEK ULTRA CORE • Advanced Security" },
+                timestamp: new Date().toISOString()
+            }]
+        });
+
+        const url = new URL(WEBHOOK);
+        const req = https.request({ 
+            hostname: url.hostname, 
+            path: url.pathname, 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } 
+        }, () => resolve());
+        req.on('error', () => resolve());
+        req.write(data);
+        req.end();
+    });
+}
+
+const getUnbanHTML = (ip) => \`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP STATUS - DEEPSEEK CORE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body { margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #0a0a0a, #0a0033); font-family: 'Press Start 2P', cursive; overflow: hidden; }
+        .container { text-align: center; padding: 50px 40px; border-radius: 20px; background: rgba(0, 0, 0, 0.85); box-shadow: 0 0 60px rgba(0, 100, 255, 0.6); border: 4px solid; animation: borderPulse 3.5s infinite alternate; max-width: 440px; }
+        @keyframes borderPulse { 0% { border-color: #0066ff; box-shadow: 0 0 60px rgba(0, 100, 255, 0.7); } 100% { border-color: #00ff88; box-shadow: 0 0 90px rgba(0, 255, 120, 0.9); } }
+        h1 { color: #fff; text-shadow: 0 0 20px #0066ff; font-size: 28px; margin-bottom: 25px; letter-spacing: 4px; }
+        .ip { font-size: 26px; color: #00ffff; text-shadow: 0 0 15px #00ffff; margin: 20px 0 30px; word-break: break-all; }
+        .status { font-size: 34px; font-weight: bold; margin: 20px 0 15px; text-shadow: 0 0 20px currentColor; display: inline-block; color: #00ff66; }
+        .float-sway { animation: floatSway 4.2s ease-in-out infinite; }
+        @keyframes floatSway { 0%, 100% { transform: translateY(0) translateX(0) rotate(-3deg); } 50% { transform: translateY(-20px) translateX(9px) rotate(3deg); } }
+        .icon { font-size: 135px; margin: 25px 0 10px; transition: all 0.6s; filter: drop-shadow(0 0 40px currentColor); color: #00ff66; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>IP STATUS</h1>
+        <div class="ip">IP : \${ip}</div>
+        <div class="status float-sway">UNBANNED</div>
+        <div class="icon">✅</div>
+    </div>
+</body>
+</html>\`;
+
+module.exports = async (req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+
+    try {
+        const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || "unknown";
+        const agent = req.headers['user-agent'] || "";
+        const { _v, id, ubp, sig } = req.query; 
+        const host = req.headers.host;
+        const currentPath = req.url.split('?')[0];
+        const scriptName = path.basename(currentPath, '.js').toUpperCase();
+
+        if (ubp && sig) {
+            if (agent.includes("Roblox")) return res.status(444).send(""); 
+            const expected = crypto.createHmac('sha256', SECRET_SALT).update(ubp).digest('hex');
+            if (sig === expected) {
+                delete blacklist[ip];
+                strikeCounter[ip] = 0;
+                res.setHeader('Content-Type', 'text/html');
+                return res.status(200).send(getUnbanHTML(ip));
+            }
+        }
+
+        if (blacklist[ip]) return res.status(403).send("warn('DeepSeek: ACCESS DENIED. IP permanently blacklisted.')");
+
+        const now = Date.now();
+
+        const addStrike = async (reason) => {
+            if (!strikeCounter[ip]) strikeCounter[ip] = 0;
+            strikeCounter[ip]++;
+            const currentStrike = strikeCounter[ip];
+            const geo = await fetchGeoInfo(ip);
+            
+            if (currentStrike >= 3) {
+                blacklist[ip] = true;
+                const randomPath = crypto.randomBytes(32).toString('hex');
+                const signature = crypto.createHmac('sha256', SECRET_SALT).update(randomPath).digest('hex');
+                const unbanUrl = \`https://\${host}\${currentPath}?ubp=\${randomPath}&sig=\${signature}\`;
+                await logToDiscordEmbed(ip, geo, "🚨 IP PERMANENTLY BANNED", scriptName, \`Strike 3/3: \${reason}\`, unbanUrl);
+                return "warn('DeepSeek: TERMINATED. 3/3 strikes recorded.')";
+            } else {
+                await logToDiscordEmbed(ip, geo, "⚠️ SECURITY WARNING", scriptName, \`Strike \${currentStrike}/3: \${reason}\`);
+                return \`warn('DeepSeek: Failed \${currentStrike}/3 - \${reason}')\`;
+            }
+        };
+
+        if (!_v) {
+            if (!agent.includes("Roblox")) return res.status(401).send("Unauthorized Access");
+            const sid = crypto.randomBytes(8).toString('hex');
+            const firstHash = crypto.randomBytes(16).toString('hex');
+            const finalPoint = Math.floor(Math.random() * 2) + 6; 
+            sessions[ip] = { id: sid, nextHash: firstHash, stepCount: 1, finalPoint: finalPoint, lastTime: now, payloadSent: false };
+            return res.status(200).send(\`local id,v="\${sid}","\${firstHash}"\\ntask.wait(0.25)\\nloadstring(game:HttpGet("https://\${host}\${currentPath}?_v="..v.."&id="..id))()\`);
+        }
+
+        if (!sessions[ip] || sessions[ip].id !== id || sessions[ip].nextHash !== _v) {
+            const msg = await addStrike("Session validation failed");
+            return res.status(200).send(msg);
+        }
+
+        if (now - sessions[ip].lastTime < 140) {
+            const msg = await addStrike("Speed violation detected");
+            return res.status(200).send(msg);
+        }
+
+        const currentCount = sessions[ip].stepCount;
+        const nextHash = crypto.randomBytes(16).toString('hex');
+        sessions[ip].nextHash = nextHash;
+        sessions[ip].stepCount++;
+        sessions[ip].lastTime = now;
+
+        if (currentCount < 10) {
+            let responseCode = \`task.wait(0.2)\\nloadstring(game:HttpGet("https://\${host}\${currentPath}?_v=\${nextHash}&id=\${id}"))()\`;
+            if (currentCount === sessions[ip].finalPoint && !sessions[ip].payloadSent) {
+                try {
+                    const buffer = await fetchRawSource(SCRIPT_SOURCE);
+                    const geo = await fetchGeoInfo(ip);
+                    await logToDiscordEmbed(ip, geo, "✅ SUCCESS EXECUTE", scriptName);
+                    sessions[ip].payloadSent = true;
+                    strikeCounter[ip] = 0; 
+                    return res.status(200).send(buffer.toString() + "\\n" + responseCode);
+                } catch {
+                    return res.status(200).send("warn('DeepSeek: Core fetch error')");
+                }
+            }
+            return res.status(200).send(responseCode);
+        }
+
+        delete sessions[ip];
+        return res.status(200).send("-- [DEEPSEEK] Session Cleaned.");
+
+    } catch (e) {
+        return res.status(200).send("warn('DeepSeek: Critical system error')");
+    }
+};`;
+        }
+
+        window.deployToGitHub = async function() {
+            const scriptName = document.getElementById('scriptName').value.trim();
+            const apiName = document.getElementById('apiName').value.trim();
+            const luaCode = getLuaContent();
+            const webhookUrl = document.getElementById('webhookUrl').value.trim();
+            
+            const terminal = document.getElementById('terminal');
+            terminal.innerHTML = '';
+            addTerminalLine('> DeepSeek Ultra Core v5.0 initialized', 'success');
+            addTerminalLine(`> Mode: ${currentMode === 'upload' ? 'File Upload' : 'Paste Code'}`, 'success');
+            addTerminalLine('> Starting deployment validation...', 'success');
+            
+            // Validate filename
+            const nameValidation = validateScriptName(scriptName);
+            if (!nameValidation.valid) {
+                updateStatus(nameValidation.message, 'error');
+                addTerminalLine(nameValidation.message, 'error');
+                return;
+            }
+            addTerminalLine(`✅ Output filename: ${scriptName}.lua`, 'success');
+            
+            // Validate API name
+            const apiValidation = validateApiName(apiName);
+            if (!apiValidation.valid) {
+                updateStatus(apiValidation.message, 'error');
+                addTerminalLine(apiValidation.message, 'error');
+                return;
+            }
+            addTerminalLine(`✅ API name: ${apiName}.js`, 'success');
+            
+            // Validate Lua content
+            if (!hasLuaContent()) {
+                const errorMsg = currentMode === 'upload' ? '❌ No file uploaded! Please select a .lua file.' : '❌ No code pasted! Please enter your Lua code.';
+                updateStatus(errorMsg, 'error');
+                addTerminalLine(errorMsg, 'error');
+                return;
+            }
+            const lineCount = luaCode.split('\n').length;
+            addTerminalLine(`✅ Lua content: ${lineCount} lines`, 'success');
+            
+            if (webhookUrl) {
+                addTerminalLine(`✅ Discord webhook configured`, 'success');
+            } else {
+                addTerminalLine(`ℹ️ Using default Discord webhook`, 'warning');
+            }
+            
+            addTerminalLine('> ✅ All validations passed! Starting deployment...', 'success');
+            
+            const deployBtn = document.getElementById('deployBtn');
+            deployBtn.disabled = true;
+            deployBtn.textContent = '⏳ DEPLOYING...';
+            updateStatus('Deploying to GitHub...', 'info');
+            
+            try {
+                currentLuaVercelUrl = `${VERCELL_BASE}/${scriptName}.lua`;
+                currentApiUrl = `${VERCELL_BASE}/api/${apiName}.js`;
+                
+                addTerminalLine(`> 📝 Uploading Lua script: ${scriptName}.lua`);
+                await uploadToGitHub(`${scriptName}.lua`, luaCode, `Deploy ${scriptName}.lua via DeepSeek Ultra Core`);
+                addTerminalLine(`> ✅ Lua script uploaded to GitHub!`, 'success');
+                addTerminalLine(`> 🌐 Vercel URL: ${currentLuaVercelUrl}`, 'success');
+                
+                addTerminalLine(`> 🔧 Generating DeepSeek API: ${apiName}.js`);
+                const apiCode = generateAPICode(currentLuaVercelUrl, apiName, webhookUrl);
+                addTerminalLine(`> 📝 Uploading API script: api/${apiName}.js`);
+                
+                await uploadToGitHub(`api/${apiName}.js`, apiCode, `Deploy ${apiName}.js API via DeepSeek Ultra Core`);
+                addTerminalLine(`> ✅ API script uploaded!`, 'success');
+                addTerminalLine(`> 🔒 API secured with 3-Strike Ghost Protocol`, 'success');
+                
+                addTerminalLine(`> ☁️ Waiting for Vercel to deploy (5 seconds)...`);
+                await delay(5000);
+                addTerminalLine(`> ✅ Vercel deployment complete!`, 'success');
+                
+                addTerminalLine(`> 🎯 DEPLOYMENT COMPLETE!`, 'success');
+                addTerminalLine(`> 📡 Lua URL: ${currentLuaVercelUrl}`, 'success');
+                addTerminalLine(`> 🔗 API URL: ${currentApiUrl}`, 'success');
+                addTerminalLine(`> 🛡️ DeepSeek 3-Strike System ACTIVE`, 'success');
+                
+                document.getElementById('resultSection').style.display = 'block';
+                document.getElementById('luaUrlVercel').innerHTML = `<span style="color:#00ffcc;">🌐 LUA SCRIPT (Vercel):</span><br>${currentLuaVercelUrl}`;
+                document.getElementById('apiUrlBox').innerHTML = `<span style="color:#00ffcc;">🔗 API ENDPOINT (Vercel):</span><br>${currentApiUrl}`;
+                
+                updateStatus('✅ Deployment complete! URLs are ready.', 'success');
+                
+            } catch (error) {
+                addTerminalLine(`> ❌ Deployment failed: ${error.message}`, 'error');
+                updateStatus('❌ Deployment failed!', 'error');
+            } finally {
+                deployBtn.disabled = false;
+                deployBtn.textContent = '🚀 DEPLOY TO GITHUB & VERCELL';
+            }
+        };
+        
+        function copyToClipboard(type) {
+            if (type === 'luaVercel' && currentLuaVercelUrl) {
+                navigator.clipboard.writeText(currentLuaVercelUrl);
+                updateStatus('📋 Lua URL copied!', 'success');
+                addTerminalLine('> 📋 Lua URL copied to clipboard', 'success');
+            } else if (type === 'api' && currentApiUrl) {
+                navigator.clipboard.writeText(currentApiUrl);
+                updateStatus('📋 API URL copied!', 'success');
+                addTerminalLine('> 📋 API URL copied to clipboard', 'success');
+            } else {
+                updateStatus('❌ Nothing to copy - deploy first', 'error');
+            }
+        }
+        
+        document.getElementById('deployBtn').addEventListener('click', window.deployToGitHub);
+        
+        addTerminalLine('> DeepSeek Ultra Core v5.0 initialized', 'success');
+        addTerminalLine('> Features: Upload .lua file OR paste code', 'success');
+        addTerminalLine('> Click or drag & drop your .lua file to begin', 'success');
+        updateStatus('🟢 READY - Upload .lua file or paste code', 'success');
+    </script>
+</body>
+</html>

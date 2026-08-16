@@ -844,7 +844,26 @@
       // and one escape pass over the whole result instead of one
       // escHtml() call per repeated chunk.
       result = Array(num).fill(text).join(sep);
-      outputBox.textContent = result;
+
+      // The full `result` (used for stats and copy) is untouched, but
+      // what gets painted to the DOM is capped separately. The cost
+      // here isn't string length — 100k copies of "A" render as one
+      // long wrapped line and are cheap. It's *line count*: with
+      // white-space: pre-wrap, every \n becomes its own layout line,
+      // so 100k newlines means 100k lines the browser must lay out
+      // and account for in a scrollable box — that's what freezes.
+      // Cap the number of rendered lines while keeping the full text
+      // available via Copy.
+      const MAX_RENDERED_LINES = 2000;
+      const lines = result.split('\n');
+      if (lines.length > MAX_RENDERED_LINES) {
+        const shown = lines.slice(0, MAX_RENDERED_LINES).join('\n');
+        const omitted = lines.length - MAX_RENDERED_LINES;
+        outputBox.textContent = shown +
+          `\n… (${omitted.toLocaleString()} more line${omitted === 1 ? '' : 's'} — use Copy to get the full text)`;
+      } else {
+        outputBox.textContent = result;
+      }
     }
 
     // Stats

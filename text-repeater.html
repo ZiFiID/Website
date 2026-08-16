@@ -167,7 +167,7 @@
     text-transform: uppercase;
   }
 
-  input[type="text"], input[type="number"] {
+  input[type="text"], input[type="number"], textarea {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -180,11 +180,19 @@
     width: 100%;
   }
 
-  input[type="text"]::placeholder {
+  textarea {
+    resize: vertical;
+    min-height: 52px;
+    max-height: 160px;
+    line-height: 1.5;
+    font-family: 'Space Mono', monospace;
+  }
+
+  input[type="text"]::placeholder, textarea::placeholder {
     color: #2d2d4a;
   }
 
-  input[type="text"]:focus, input[type="number"]:focus {
+  input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(124,58,237,0.15), 0 0 20px rgba(124,58,237,0.1);
     background: #0d0d1c;
@@ -231,6 +239,19 @@
 
   .num-btn:hover { background: #1a1a30; color: var(--white); }
   .num-btn:active { background: var(--accent); color: var(--white); }
+
+  /* Hint under textarea for whitespace-only content */
+  .input-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-top: 6px;
+    min-height: 12px;
+    transition: color 0.3s;
+  }
+
+  .input-hint.notice { color: var(--accent3); }
 
   /* Separator option */
   .separator-row {
@@ -371,6 +392,7 @@
     overflow-y: auto;
     position: relative;
     transition: border-color 0.3s;
+    white-space: pre-wrap;
   }
 
   .output-box:hover { border-color: rgba(124,58,237,0.4); }
@@ -384,6 +406,12 @@
   .char-span {
     display: inline;
     transition: color 0.3s;
+  }
+
+  /* Visible marker for whitespace-only characters in output */
+  .ws-marker {
+    opacity: 0.55;
+    font-size: 0.85em;
   }
 
   /* Echo visualizer */
@@ -598,7 +626,8 @@
     <div class="inputs-row">
       <div class="field">
         <label>Your text</label>
-        <input type="text" id="textInput" placeholder="Type something..." maxlength="200" autocomplete="off" />
+        <textarea id="textInput" placeholder="Type something... (spaces and line breaks work too)" maxlength="500" rows="1"></textarea>
+        <div class="input-hint" id="inputHint"></div>
       </div>
       <div class="num-field">
         <label>Repeat</label>
@@ -735,20 +764,45 @@
     setTimeout(() => inp.style.color = '', 300);
   }
 
-  function generate() {
-    const text = document.getElementById('textInput').value;
-    const num = Math.max(1, parseInt(document.getElementById('numInput').value) || 1);
+  // Auto-grow the textarea as the user types (including across line breaks)
+  function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  }
 
-    if (!text.trim()) {
-      document.getElementById('textInput').style.borderColor = '#ef4444';
-      document.getElementById('textInput').style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)';
-      document.getElementById('textInput').placeholder = 'Please type something first! 👀';
+  function generate() {
+    const textEl = document.getElementById('textInput');
+    const text = textEl.value;
+    const num = Math.max(1, parseInt(document.getElementById('numInput').value) || 1);
+    const hint = document.getElementById('inputHint');
+
+    // Only reject truly EMPTY input (length 0). Whitespace-only content
+    // (a single space, multiple spaces, a newline, tabs, etc.) is valid
+    // and should be repeated as-is — that's the whole point of a repeater.
+    if (text.length === 0) {
+      textEl.style.borderColor = '#ef4444';
+      textEl.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.2)';
+      const originalPlaceholder = textEl.placeholder;
+      textEl.placeholder = 'Please type something first! 👀';
+      hint.textContent = '';
+      hint.classList.remove('notice');
       setTimeout(() => {
-        document.getElementById('textInput').style.borderColor = '';
-        document.getElementById('textInput').style.boxShadow = '';
-        document.getElementById('textInput').placeholder = 'Type something...';
+        textEl.style.borderColor = '';
+        textEl.style.boxShadow = '';
+        textEl.placeholder = originalPlaceholder;
       }, 1500);
       return;
+    }
+
+    // Friendly (non-blocking) notice when the input is whitespace-only,
+    // just so the user knows it registered as spaces/newlines/tabs.
+    if (text.trim().length === 0) {
+      const desc = describeWhitespace(text);
+      hint.textContent = `Repeating whitespace: ${desc}`;
+      hint.classList.add('notice');
+    } else {
+      hint.textContent = '';
+      hint.classList.remove('notice');
     }
 
     // Card shake
@@ -806,14 +860,41 @@
     copyBtn._result = result;
   }
 
+  // Turns a whitespace-only string into a short human-readable description,
+  // e.g. "3 spaces", "1 newline", "2 spaces + 1 tab"
+  function describeWhitespace(str) {
+    if (str.length === 0) return '(empty)';
+    const spaces = (str.match(/ /g) || []).length;
+    const newlines = (str.match(/\n/g) || []).length;
+    const tabs = (str.match(/\t/g) || []).length;
+    const parts = [];
+    if (spaces) parts.push(`${spaces} space${spaces > 1 ? 's' : ''}`);
+    if (newlines) parts.push(`${newlines} line break${newlines > 1 ? 's' : ''}`);
+    if (tabs) parts.push(`${tabs} tab${tabs > 1 ? 's' : ''}`);
+    return parts.length ? parts.join(' + ') : `${str.length} whitespace char(s)`;
+  }
+
+  // Escapes HTML for the colored output, then renders spaces/newlines/tabs
+  // as visible marks so a whitespace-only repeat isn't just an empty box.
   function escHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    let out = str
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;');
+    // Visible markers for pure whitespace so the output isn't blank-looking.
+    out = out
+      .replace(/\n/g, '<span class="ws-marker">↵</span><br>')
+      .replace(/\t/g, '<span class="ws-marker">⇥</span>\t')
+      .replace(/ /g, '<span class="ws-marker">·</span> ');
+    return out;
   }
 
   function copyText() {
     const btn = document.getElementById('copyBtn');
     const text = btn._result || '';
-    if (!text) return;
+    // Whitespace-only results are still valid to copy — only bail on a
+    // truly empty/undefined result (e.g. before Generate has run once).
+    if (text.length === 0) return;
     navigator.clipboard.writeText(text).then(() => {
       btn.textContent = '✓ Copied!';
       btn.classList.add('copied');
@@ -824,9 +905,14 @@
     });
   }
 
-  // Enter key
+  // Enter key: Shift+Enter (or Enter alone, since it's a textarea now)
+  // still inserts a newline normally; Ctrl/Cmd+Enter triggers Generate
+  // as a convenient shortcut without blocking manual newline entry.
   document.getElementById('textInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') generate();
+    if ((e.key === 'Enter') && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      generate();
+    }
   });
   document.getElementById('numInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') generate();
@@ -835,12 +921,15 @@
     if (e.key === 'Enter') applyCustomSep();
   });
 
-  // Live preview pulse
-  document.getElementById('textInput').addEventListener('input', () => {
-    document.getElementById('textInput').style.borderColor = 'rgba(124,58,237,0.6)';
+  // Live preview pulse + auto-grow
+  const textInputEl = document.getElementById('textInput');
+  textInputEl.addEventListener('input', () => {
+    autoGrow(textInputEl);
+    textInputEl.style.borderColor = 'rgba(124,58,237,0.6)';
     clearTimeout(window._pt);
-    window._pt = setTimeout(() => document.getElementById('textInput').style.borderColor = '', 600);
+    window._pt = setTimeout(() => textInputEl.style.borderColor = '', 600);
   });
+  autoGrow(textInputEl);
 </script>
 </body>
 </html>

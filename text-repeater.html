@@ -812,26 +812,48 @@
     card.classList.add('shake');
 
     const sep = currentSep;
-    const parts = Array(num).fill(text);
-    const result = parts.join(sep);
 
-    // Build colored output
+    // Threshold above which per-repeat rainbow spans become the
+    // bottleneck (thousands of individual <span> elements + repeated
+    // escHtml() calls). Below it, keep the full colored breakdown —
+    // it's cheap and looks good. Above it, build the string natively
+    // (Array.join is implemented in C++ in the engine, not a JS loop)
+    // and escape once at the end instead of once per repeat.
+    const RAINBOW_LIMIT = 300;
+
+    let result;
     const outputBox = document.getElementById('outputBox');
-    const colors = ['#a78bfa','#67e8f9','#fcd34d','#6ee7b7','#f9a8d4','#93c5fd'];
-    let html = '';
-    parts.forEach((p, i) => {
-      const c = colors[i % colors.length];
-      html += `<span style="color:${c}">${escHtml(p)}</span>`;
-      if (i < parts.length - 1) {
-        html += `<span style="color:#475569">${escHtml(sep)}</span>`;
-      }
-    });
-    outputBox.innerHTML = html;
+
+    if (num <= RAINBOW_LIMIT) {
+      const parts = Array(num).fill(text);
+      result = parts.join(sep);
+
+      const colors = ['#a78bfa','#67e8f9','#fcd34d','#6ee7b7','#f9a8d4','#93c5fd'];
+      let html = '';
+      parts.forEach((p, i) => {
+        const c = colors[i % colors.length];
+        html += `<span style="color:${c}">${escHtml(p)}</span>`;
+        if (i < parts.length - 1) {
+          html += `<span style="color:#475569">${escHtml(sep)}</span>`;
+        }
+      });
+      outputBox.innerHTML = html;
+    } else {
+      // Fast path: one native join instead of a manual loop building
+      // up a string with += (which reallocates on every iteration),
+      // and one escape pass over the whole result instead of one
+      // escHtml() call per repeated chunk.
+      result = Array(num).fill(text).join(sep);
+      outputBox.textContent = result;
+    }
 
     // Stats
     document.getElementById('statChars').textContent = result.length.toLocaleString();
     document.getElementById('statRepeat').textContent = num;
-    document.getElementById('statWords').textContent = result.trim().split(/\s+/).filter(Boolean).length.toLocaleString();
+    // Word count via regex match instead of split+filter — avoids
+    // building a huge intermediate array for very long results.
+    const wordMatches = result.match(/\S+/g);
+    document.getElementById('statWords').textContent = (wordMatches ? wordMatches.length : 0).toLocaleString();
     document.getElementById('countBadge').textContent = result.length.toLocaleString() + ' chars';
 
     // Visualizer bars

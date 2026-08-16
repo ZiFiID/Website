@@ -149,7 +149,7 @@
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 16px;
-    align-items: end;
+    align-items: start;
     margin-bottom: 28px;
   }
 
@@ -626,7 +626,7 @@
     <div class="inputs-row">
       <div class="field">
         <label>Your text</label>
-        <textarea id="textInput" placeholder="Type something... (spaces and line breaks work too)" maxlength="500" rows="1"></textarea>
+        <textarea id="textInput" placeholder="Type something..." maxlength="500" rows="1"></textarea>
         <div class="input-hint" id="inputHint"></div>
       </div>
       <div class="num-field">
@@ -881,11 +881,18 @@
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
       .replace(/>/g,'&gt;');
-    // Visible markers for pure whitespace so the output isn't blank-looking.
+    // Replace char-by-char (not with regex+replace chaining) so the
+    // spaces inside the marker spans we just inserted never get
+    // re-matched by a later replace pass.
     out = out
-      .replace(/\n/g, '<span class="ws-marker">↵</span><br>')
-      .replace(/\t/g, '<span class="ws-marker">⇥</span>\t')
-      .replace(/ /g, '<span class="ws-marker">·</span> ');
+      .split('')
+      .map(ch => {
+        if (ch === '\n') return '<span class="ws-marker">↵</span><br>';
+        if (ch === '\t') return '<span class="ws-marker">⇥</span>\t';
+        if (ch === ' ') return '<span class="ws-marker">·</span> ';
+        return ch;
+      })
+      .join('');
     return out;
   }
 
